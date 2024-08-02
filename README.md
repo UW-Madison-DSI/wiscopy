@@ -3,7 +3,7 @@ Python wrapper for the [Wisconet](https://wisconet.wisc.edu/) [API v1](https://w
 
 ## install
 ```
-git clone pywisconet
+git clone git@github.com:UW-Madison-DSI/pywisconet.git
 cd pywisconet
 poetry install
 ```
