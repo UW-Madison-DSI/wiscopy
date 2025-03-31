@@ -5220,8 +5220,11 @@ packages:
 - pypi: .
   name: wiscopy
   version: 0.1.0
-  sha256: 88bca24282716d8ca220e0ddd64bd0f3593663dbfa37dcc18eb8fec7edcefba6
+  sha256: 37e67dc2dec7e73ba41cedfe6b25e65c474626ed41208134d3e0a4d4a5ebd0c9
   requires_dist:
+  - pydantic>=2.10.6
+  - httpx>=0.28.1
+  - pandas>=2.2.3
   - hvplot>=0.11.2 ; extra == 'plot'
   - matplotlib>=3.10.1 ; extra == 'plot'
   requires_python: '>=3.10'
