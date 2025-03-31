@@ -1,10 +1,9 @@
 [project]
 authors = [{name = "Iain McConnell", email = "ilmcconnell@github.id"}]
 dependencies = [
-    "pydantic>=2.10.6",
-    "httpx>=0.28.1",
-    "pandas>=2.2.3",
-    "python>=3.10"
+    "pydantic >= 2.10.6",
+    "httpx >= 0.28.1",
+    "pandas >= 2.2.3",
 ]
 name = "wiscopy"
 requires-python = ">= 3.10"

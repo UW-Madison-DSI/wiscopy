@@ -10,7 +10,7 @@ pip install wiscopy
 
 ### install with plotting library dependencies
 ```bash
-pip install wiscopy[plot]
+pip install 'wiscopy[plot]'
 ```
 
 ## Usage
