@@ -1,7 +1,7 @@
 import pandas as pd
 from enum import Enum
-from pywisconet.schema import BulkMeasures, Field
-from pywisconet.variables import CollectionFrequency, MeasureType, Units
+from wiscopy.schema import BulkMeasures, Field
+from wiscopy.variables import CollectionFrequency, MeasureType, Units
 
 
 def filter_fields(fields: list[Field], criteria: list[Enum]) -> list[str]:
@@ -33,7 +33,13 @@ def filter_fields(fields: list[Field], criteria: list[Enum]) -> list[str]:
     return [field.standard_name for field in fields]
 
 
-def bulk_measures_to_df(bms: BulkMeasures) -> pd.DataFrame:
+def bulk_measures_to_df(bms: BulkMeasures, tz: str | None = None, station_id: str = "") -> pd.DataFrame | None:
+    """
+    Convert BulkMeasures object to a pandas DataFrame.
+    :param bms: BulkMeasures object.
+    :param tz: optional timezone string to convert collection_time to e.g 'US/Central' if not set collection_time will be in UTC.
+    :return: pd.DataFrame
+    """
     field_lookup = {field.id: field for field in bms.fieldlist}
     rows = []
     for collection in bms.data:
@@ -47,4 +53,36 @@ def bulk_measures_to_df(bms: BulkMeasures) -> pd.DataFrame:
                 "value": value,
             } | {k: v for k, v in field.model_dump().items()}
             rows.append(row)
-    return pd.DataFrame(rows)
+    
+    df = pd.DataFrame(rows)
+    
+    if df.empty:
+        return None
+    
+    if station_id:
+        df["station_id"] = station_id
+    
+    if tz:
+        df["collection_time"] = pd.to_datetime(df["collection_time"], utc=True).dt.tz_convert(tz)
+    else:
+        df["collection_time"] = pd.to_datetime(df["collection_time"], utc=True)
+    
+    df.set_index("collection_time", inplace=True)
+    return df
+
+
+def multiple_bulk_measures_to_df(bulk_measures: list[BulkMeasures], tz: str | None = None, station_id: str = "") -> pd.DataFrame | None:
+    """
+    Convert multiple BulkMeasures objects to a single pandas DataFrame.
+    :param bulk_measures: list of BulkMeasures objects.
+    :param tz: optional timezone string to convert collection_time to e.g 'US/Central' if not set collection_time will be in UTC.
+    :return: pd.DataFrame
+    """
+    dfs = []
+    for bm in bulk_measures:
+        df = bulk_measures_to_df(bm, tz=tz, station_id=station_id)
+        if df is not None:
+            dfs.append(df)
+    if not dfs:
+        return None
+    return pd.concat(dfs)

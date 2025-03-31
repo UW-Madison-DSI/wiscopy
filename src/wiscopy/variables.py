@@ -41,6 +41,6 @@ class Units(Enum):
     INCHES = 'inches'
     MPH = 'mph'
     DIR = 'Dir'
-    WPM2 = 'W/m<sup>2</sup>' 
+    WPM2 = 'W/m\u00B2' 
     MB = 'mb' 
-    KWHPM2 = 'kWh/m<sup>2</sup>'
+    KWHPM2 = 'kWh/m\u00B2'
