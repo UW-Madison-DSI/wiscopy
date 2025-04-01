@@ -7,13 +7,13 @@ dependencies = [
 ]
 name = "wiscopy"
 requires-python = ">= 3.10"
-version = "0.1.0"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
 ]
 license = "MIT"
 license-files = ["LICENSE"]
+dynamic = ["version"]
 
 [project.optional-dependencies]
 plot = [
@@ -27,7 +27,11 @@ Issues = "https://github.com/UW-Madison-DSI/wiscopy/issues"
 
 [build-system]
 build-backend = "hatchling.build"
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
+
+[tool.hatch]
+version.source = "vcs"
+build.hooks.vcs.version-file = "src/wiscopy/version.py"
 
 [tool.hatch.build.targets.sdist]
 ignore-vcs = true
