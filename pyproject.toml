@@ -54,9 +54,9 @@ targets.wheel.packages = ["src/wiscopy"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-[tool.pixi.project]
+[tool.pixi.workspace]
 channels = ["conda-forge"]
-platforms = ["linux-64", "osx-64", "osx-arm64"] 
+platforms = ["linux-64", "osx-64", "osx-arm64"]
 
 [tool.pixi.pypi-dependencies]
 wiscopy = { path = ".", editable = true }
@@ -80,6 +80,13 @@ pytest = "*"
 hvplot = "*"
 matplotlib = "*"
 
+[tool.pixi.feature.notebook.tasks]
+start = "jupyter lab notebooks/examples.ipynb"
+
+[tool.pixi.feature.notebook.dependencies]
+notebook = ">=7.3.3,<8"
+jupyterlab = ">=4.3.6,<5"
+
 [tool.pixi.feature.build.dependencies]
 uv = "*"
 
@@ -93,6 +100,7 @@ uvx twine check --strict dist/*
 
 [tool.pixi.environments]
 dev = ["dev", "plot", "test"]
+notebook = ["plot", "notebook"]
 build = {features = ["build"], no-default-feature = true}
 
 

@@ -35,7 +35,7 @@ df = w.get_data(
     fields=["60min_air_temp_f_avg"]
 )
 df.hvplot(
-    y="value", 
+    y="value",
     by="station_id",
     title="60min_air_temp_f_avg",
     ylabel=df.final_units.iloc[0],
@@ -47,7 +47,11 @@ df.hvplot(
 ![Specific data over a specific time period](./notebooks/specific_data_specific_time.png)
 
 ### More examples
-see more examples in [notebooks/examples.ipynb](https://github.com/UW-Madison-DSI/wiscopy/blob/main/notebooks/examples.ipynb)
+see more examples in [notebooks/examples.ipynb](https://github.com/UW-Madison-DSI/wiscopy/blob/main/notebooks/examples.ipynb), or run
+
+```
+pixi run start
+```
 
 ## Wisconet
 
