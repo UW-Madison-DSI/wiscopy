@@ -176,3 +176,7 @@ cython_debug/
 # pixi environments
 .pixi
 *.egg-info
+
+
+# hatch version file
+src/wiscopy/_version.py

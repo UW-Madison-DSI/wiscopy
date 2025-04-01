@@ -1,5 +1,7 @@
 [project]
 authors = [{name = "Iain McConnell", email = "ilmcconnell@github.id"}]
+readme = "README.md"
+description = "A Python API wrapper for the Wisconsin environmental mesonet API: Wisconet"
 dependencies = [
     "pydantic >= 2.10.6",
     "httpx >= 0.28.1",
@@ -26,29 +28,28 @@ Homepage = "https://github.com/UW-Madison-DSI/wiscopy"
 Issues = "https://github.com/UW-Madison-DSI/wiscopy/issues"
 
 [build-system]
-build-backend = "hatchling.build"
 requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
-[tool.hatch]
-version.source = "vcs"
-build.hooks.vcs.version-file = "src/wiscopy/version.py"
+[tool.hatch.version]
+source = "vcs"
+raw-options.version_scheme = "no-guess-dev"
 
-[tool.hatch.build.targets.sdist]
-ignore-vcs = true
-include = [
+[tool.hatch.build]
+hooks.vcs.version-file = "src/wiscopy/_version.py"
+targets.sdist.ignore-vcs = true
+targets.sdist.include = [
     "LICENSE",
     "README.md",
     "pyproject.toml",
     "pixi.lock",
     "/src"
 ]
-exclude = [
+targets.sdist.exclude = [
     "/tests",
     "/data"
 ]
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/wiscopy"]
+targets.wheel.packages = ["src/wiscopy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -79,5 +80,19 @@ pytest = "*"
 hvplot = "*"
 matplotlib = "*"
 
+[tool.pixi.feature.build.dependencies]
+uv = "*"
+
+[tool.pixi.feature.build.tasks.build]
+description = "Build a sdist and wheel"
+cmd = """
+rm -rf dist && \
+uvx --from build pyproject-build && \
+uvx twine check --strict dist/*
+"""
+
 [tool.pixi.environments]
 dev = ["dev", "plot", "test"]
+build = {features = ["build"], no-default-feature = true}
+
+

@@ -1,5 +1,22 @@
 version: 6
 environments:
+  build:
+    channels:
+    - url: https://conda.anaconda.org/conda-forge/
+    packages:
+      linux-64:
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/_libgcc_mutex-0.1-conda_forge.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-2_gnu.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/libgcc-14.2.0-h767d61c_2.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/libgomp-14.2.0-h767d61c_2.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/libstdcxx-14.2.0-h8f9b012_2.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/uv-0.6.11-h0f3a69f_0.conda
+      osx-64:
+      - conda: https://conda.anaconda.org/conda-forge/osx-64/libcxx-20.1.1-hf95d169_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/osx-64/uv-0.6.11-h8de1528_0.conda
+      osx-arm64:
+      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/libcxx-20.1.1-ha82da77_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/uv-0.6.11-h668ec48_0.conda
   default:
     channels:
     - url: https://conda.anaconda.org/conda-forge/
@@ -5143,6 +5160,18 @@ packages:
   purls: []
   size: 11798926
   timestamp: 1742994058207
+- conda: https://conda.anaconda.org/conda-forge/linux-64/uv-0.6.11-h0f3a69f_0.conda
+  sha256: c3d5b501308fb96cf85882ea2d884522f40e1a72e0d1b01a098b5b4a05f4c1f9
+  md5: a7f4fbdbd7e3ba1b7619f9c4e0d96c42
+  depends:
+  - __glibc >=2.17,<3.0.a0
+  - libgcc >=13
+  - libstdcxx >=13
+  constrains:
+  - __glibc >=2.17
+  license: Apache-2.0 OR MIT
+  size: 11861835
+  timestamp: 1743371579029
 - conda: https://conda.anaconda.org/conda-forge/osx-64/uv-0.6.10-h8de1528_0.conda
   sha256: 604c987ccde8b4009abfbd2146309e8a9ce7510d393ce4113dffe2b6963b4c35
   md5: c6045cbc51fccfd84dae2439776b6dfe
@@ -5155,6 +5184,17 @@ packages:
   purls: []
   size: 11316774
   timestamp: 1742995304190
+- conda: https://conda.anaconda.org/conda-forge/osx-64/uv-0.6.11-h8de1528_0.conda
+  sha256: d3366018e9ae9f24663f61b7d2c8aceeb3ce35ceb5878ac68dd2b46a40a0beda
+  md5: bf323788c2f92a1071b8d091e6b44470
+  depends:
+  - __osx >=10.13
+  - libcxx >=18
+  constrains:
+  - __osx >=10.13
+  license: Apache-2.0 OR MIT
+  size: 11390940
+  timestamp: 1743372010503
 - conda: https://conda.anaconda.org/conda-forge/osx-arm64/uv-0.6.10-h668ec48_0.conda
   sha256: 2c7f724345cf01ce7ff76a9e49662bc60ce3db9ebee8f7d7c44e621ea4bfc718
   md5: dfba53db3db2cec15df8ade779778880
@@ -5167,6 +5207,17 @@ packages:
   purls: []
   size: 10293871
   timestamp: 1742995303137
+- conda: https://conda.anaconda.org/conda-forge/osx-arm64/uv-0.6.11-h668ec48_0.conda
+  sha256: ddc6356a13c1a71bed45444a48d37f794decea2b2df55da8602cb8c8b085ac31
+  md5: 10034a87b64e37e8b2216ae433ea7bd4
+  depends:
+  - __osx >=11.0
+  - libcxx >=18
+  constrains:
+  - __osx >=11.0
+  license: Apache-2.0 OR MIT
+  size: 10463570
+  timestamp: 1743372663001
 - conda: https://conda.anaconda.org/conda-forge/noarch/virtualenv-20.29.3-pyhd8ed1ab_0.conda
   sha256: f7b2cd8ee05769e57dab1f2e2206360cb03d15d4290ddb30442711700c430ba6
   md5: 87a2061465e55be9a997dd8cf8b5a578
@@ -5219,12 +5270,12 @@ packages:
   timestamp: 1733236131358
 - pypi: .
   name: wiscopy
-  version: 0.1.0
-  sha256: 37e67dc2dec7e73ba41cedfe6b25e65c474626ed41208134d3e0a4d4a5ebd0c9
+  version: 0.0.post1.dev16+g3408644.d20250401
+  sha256: 288d8ed76c8b8ea01f27fd1055797a42e862a71ebb5da597f530971139514a84
   requires_dist:
-  - pydantic>=2.10.6
   - httpx>=0.28.1
   - pandas>=2.2.3
+  - pydantic>=2.10.6
   - hvplot>=0.11.2 ; extra == 'plot'
   - matplotlib>=3.10.1 ; extra == 'plot'
   requires_python: '>=3.10'
