@@ -102,5 +102,3 @@ uvx twine check --strict dist/*
 dev = ["dev", "plot", "test"]
 notebook = ["plot", "notebook"]
 build = {features = ["build"], no-default-feature = true}
-
-
