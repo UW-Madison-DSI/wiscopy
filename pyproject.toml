@@ -94,5 +94,3 @@ uvx twine check --strict dist/*
 [tool.pixi.environments]
 dev = ["dev", "plot", "test"]
 build = {features = ["build"], no-default-feature = true}
-
-
