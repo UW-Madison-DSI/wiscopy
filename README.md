@@ -3,14 +3,34 @@ Python wrapper for [Wisconet](https://wisconet.wisc.edu/). Currently supporting 
 
 ## Install
 
-### base install
-```bash
-pip install wiscopy
+### From PyPI
+
+#### base install
+
+To install `wiscopy` from [PyPI](https://pypi.org/project/wiscopy/) run
+
+```
+python -m pip install wiscopy
 ```
 
-### install with plotting library dependencies
-```bash
-pip install 'wiscopy[plot]'
+#### install with plotting library dependencies
+
+```
+python -m pip install 'wiscopy[plot]'
+```
+
+### From conda-forge
+
+To install and add `wiscopy` to a project from [conda-forge](https://github.com/conda-forge/wiscopy-feedstock) with [Pixi](https://pixi.sh/), from the project directory run
+
+```
+pixi add wiscopy
+```
+
+and to install into a particular conda environment with [`conda`](https://docs.conda.io/projects/conda/), in the activated environment run
+
+```
+conda install --channel conda-forge wiscopy
 ```
 
 ## Usage
