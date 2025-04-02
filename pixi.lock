@@ -6804,8 +6804,8 @@ packages:
   timestamp: 1733157432924
 - pypi: .
   name: wiscopy
-  version: 0.0.post1.dev20+g50cfcbc
-  sha256: ed74900d610f65ae9e7b9deaaf3ee180582063830ec2505bd6398754b95e487a
+  version: 0.1.1.post1.dev11+g9be4be1
+  sha256: 610a0a9e7fc4807d7d5a2ef836928bbeaa72e04f426d121480ebafabf6f0c8c5
   requires_dist:
   - httpx>=0.28.1
   - pandas>=2.2.3
