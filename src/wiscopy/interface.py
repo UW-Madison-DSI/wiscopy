@@ -45,12 +45,12 @@ class WisconetStation:
         else:
             return [field.standard_name for field in self.fields() if filter in field.standard_name]
     
-    def fetch_data(self, start_time: datetime, end_time: datetime, fields: list[str], timeout: float = 30.0) -> pd.DataFrame | None:
+    def fetch_data(self, start_time: datetime | str, end_time: datetime | str, fields: list[str], timeout: float = 30.0) -> pd.DataFrame | None:
         """
         Get field data for the station between two times in station local time.
         returns results in local station time.
-        :param start_time: datetime, fetch start time in station local time.
-        :param end_time: datetime fetch end time in station local time.
+        :param start_time: datetime or iso-format string, fetch start time in station local time. e.g. "2025-01-01T00:00:00"
+        :param end_time: datetime or iso-format string, fetch end time in station local time. "2025-02-01T00:00:00"
         :param fields: list of Field.standard_name strings of fields to return. From self.get_field_names().
         :param timeout: float, httpx timeout.
         :return: pd.DataFrame or None if no data.

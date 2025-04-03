@@ -177,6 +177,9 @@ cython_debug/
 .pixi
 *.egg-info
 
+# dev scratch
+notebooks/scratch.ipynb
 
 # hatch version file
 src/wiscopy/_version.py
+

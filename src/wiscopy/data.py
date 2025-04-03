@@ -56,13 +56,16 @@ def station_fields(station_id: str) -> list[Field]:
     return [Field(**field) for field in response.json()]
 
 
-def datetime_at_station_in_utc(station: Station, dt: datetime) -> datetime:
+def datetime_at_station_in_utc(station: Station, dt: datetime | str) -> datetime:
     """
     Convert a datetime to UTC based on the station's timezone.
     :param station: Station object.
-    :param dt: datetime to convert.
+    :param dt: datetime or iso-format datetime string to convert e.g. "2021-01-01T00:00:00"
     :return: datetime in UTC.
     """
+    if isinstance(dt, str):
+        dt = datetime.fromisoformat(dt)
+
     return (
         dt
         .replace(tzinfo=ZoneInfo(station.station_timezone))
@@ -121,13 +124,13 @@ async def async_bulk_measures(
     return BulkMeasures(**response.json())
 
 
-async def gather_async_bulk_measure_data(station_id: str, start_time: datetime, end_time: datetime, duration_days: int, client: httpx.AsyncClient, fields: list[str] | None = None) -> list[BulkMeasures]:
+async def gather_async_bulk_measure_data(station_id: str, start_time: datetime, end_time: datetime, chunk_days: int, client: httpx.AsyncClient, fields: list[str] | None = None) -> list[BulkMeasures]:
     """
-    Get measures for a station between two times.
+    Async fetch measures for a station between two times by splitting a measures request into chunks, and async fetching all the chunks simultaneously.
     :param station_id: Station.station_id e.g "ALTN"
     :param start_time: datetime, fetch start time in UTC.
     :param end_time: datetime fetch end time in UTC
-    :param duration_days: int, number of days to fetch data for in each async task.
+    :param chunk_days: int, number of days to fetch data for in each async task/chunk.
     :param fields: optional list of Field.standard_name strings of fields to return. If not specified, returns all fields.
     :param timeout: float, httpx timeout.
     :return: BulkMeasures object
@@ -135,11 +138,11 @@ async def gather_async_bulk_measure_data(station_id: str, start_time: datetime, 
     total_time_delta = end_time - start_time
     task_start_and_end_dts = [
         (
-            start_time + timedelta(days=i*duration_days), 
-            start_time + timedelta(days=(i+1)*duration_days) if start_time + timedelta(days=(i+1)*duration_days) < end_time else end_time
+            start_time + timedelta(days=i*chunk_days), 
+            start_time + timedelta(days=(i+1)*chunk_days) if start_time + timedelta(days=(i+1)*chunk_days) < end_time else end_time
         )
-        for i in range(0, total_time_delta.days // duration_days + 1)
-        if start_time + timedelta(days=i*duration_days) < end_time
+        for i in range(0, total_time_delta.days // chunk_days + 1)
+        if start_time + timedelta(days=i*chunk_days) < end_time
     ]
     return await asyncio.gather(
         *[async_bulk_measures(
@@ -162,15 +165,17 @@ def bulk_fetch(station: Station, start_time: datetime, end_time: datetime, field
     :param limits: optional httpx.Limits object for AsyncClient if None defaults to 5 max_keepalive_connections and 5 max_connections
     :return: BulkMeasures object.
     """
+    start_time_utc = datetime_at_station_in_utc(station=station, dt=start_time)
+    end_time_utc = datetime_at_station_in_utc(station=station, dt=end_time)
     if not limits:
         limits = httpx.Limits(max_keepalive_connections=5, max_connections=5)
     client = httpx.AsyncClient(base_url=BASE_URL, timeout=timeout, limits=limits)
     bulk_measures = asyncio.run(
         gather_async_bulk_measure_data(
             station_id=station.station_id,
-            start_time=start_time,
-            end_time=end_time,
-            duration_days=duration_days,
+            start_time=start_time_utc,
+            end_time=end_time_utc,
+            chunk_days=duration_days,
             client=client,
             fields=fields,
         )
@@ -203,8 +208,8 @@ def all_data_for_station(s: Station, fields: list[str] | None = None, duration_d
 
 def fetch_data_multiple_stations(
     stations: list[Station],
-    start_time: datetime,
-    end_time: datetime,
+    start_time: datetime | str,
+    end_time: datetime | str,
     fields: list[str],
     limits: httpx.Limits | None = None,
     duration_days: int = 30,
