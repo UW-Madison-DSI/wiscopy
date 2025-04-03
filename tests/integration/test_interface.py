@@ -1,7 +1,8 @@
 import pytest
 import pandas as pd
 from datetime import datetime
-from wiscopy.interface import Wisconet
+
+from wiscopy.interface import Wisconet, WisconetStation
 
 
 @pytest.mark.parametrize(
@@ -33,3 +34,18 @@ def test_wisconet_get_data(station_ids, start_time, end_time, fields):
     assert "station_id" in df.columns, "Expected returned df to have a 'station_id' column"
     assert "value" in df.columns, "Expected returned df to have a 'value' column"
     assert set(df.station_id.unique().tolist()) == set(real_station_ids), "Expected station_id column to contain each real requested station"
+
+
+@pytest.mark.parametrize(
+    "lat, lon, expected_station_name",
+    [
+        (43.0747, -89.3841, "Verona"),
+        (45.2910, -87.0231, "Sister Bay"),
+    ]
+)
+def test_wisconet_get_nearest_station(lat, lon, expected_station_name):
+    w = Wisconet()
+    station = w.nearest_station(lat=lat, lon=lon)
+    assert isinstance(station, WisconetStation), "Expected a WisconetStation object"
+    assert station.station.station_name == expected_station_name, "Expected Verona station"
+    

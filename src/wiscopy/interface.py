@@ -1,4 +1,5 @@
 import httpx
+from math import (pi, sin, cos, sqrt, atan2)
 import pandas as pd
 from datetime import datetime
 
@@ -77,7 +78,26 @@ class WisconetStation:
         :return: pd.DataFrame
         """
         return all_data_for_station(self.station, fields=fields, timeout=timeout)
-
+    
+    def distance(self, lat: float, lon: float) -> float:
+        """
+        Calculate great circle distance in meters from station lat/lon to given lat/lon.
+        :param lat: latitude
+        :param lon: longitude
+        :return: distance in meters
+        """
+        lat1, lon1 = self.station.latitude, self.station.longitude
+        lat2, lon2 = lat, lon
+        R = 6371e3
+        phi1 = lat1 * pi / 180
+        phi2 = lat2 * pi / 180
+        delta_phi = phi2 - phi1
+        delta_lambda = (lon2 - lon1) * pi / 180
+        a = (sin(delta_phi / 2) ** 2 + cos(phi1) * cos(phi2) * sin(delta_lambda / 2) ** 2)
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        distance = R * c
+        return distance
+        
     def __repr__(self):
         return f"WisconetStation(station={self.station})"
     
@@ -103,6 +123,39 @@ class Wisconet:
         :return: list of station names
         """
         return [station.station.station_name for station in self.stations]
+    
+    def nearest_station(self, lat: float, lon: float) -> WisconetStation | None:
+        """
+        Get the nearest station to a given latitude and longitude.
+        :param lat: latitude
+        :param lon: longitude
+        :return: WisconetStation object or None if no station found.
+        """
+        nearest_station = None
+        nearest_distance = float('inf')
+        for station in self.stations:
+            distance = station.distance(lat, lon)
+            if distance < nearest_distance:
+                nearest_distance = distance
+                nearest_station = station
+        return nearest_station
+
+    def nearest_stations(self, lat: float, lon: float, range: float, n: int = 1 ) -> list[tuple[WisconetStation, float]]:
+        """
+        Get the nearest station to a given latitude and longitude.
+        :param lat: latitude
+        :param lon: longitude
+        :param range: max range in meters to consider from lat lon
+        :param n: number of stations to return
+        :return: list of tuples of (WisconetStation, distance) or None if no station found.
+        """
+        nearest_stations = []
+        nearest_distance = float('inf')
+        for station in self.stations:
+            distance = station.distance(lat, lon)
+            if distance < range:
+                nearest_stations.append((station, distance))
+        return sorted(nearest_stations, key=lambda x: x[1])[:n]
     
     def get_station(self, 
         station_id: str | int

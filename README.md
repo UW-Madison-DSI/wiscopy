@@ -1,6 +1,11 @@
 # Wiscopy
 Python wrapper for [Wisconet](https://wisconet.wisc.edu/). Currently supporting [API v1](https://wisconet.wisc.edu/docs).
 
+## Main Features
+1. Easy to use interface: simply specify the stations, datetime range, and fields you want
+2. Data automatically formatted into a pandas DataFrame
+3. Fetch large amounts of data with transparent concurrency
+
 ## Install
 
 ### From PyPI
@@ -37,10 +42,11 @@ conda install --channel conda-forge wiscopy
 
 ### Fetch data from multiple stations, create a Dataframe, and plot.
 ```python
-import nest_asyncio
+import nest_asyncio  # needed to run wiscopy in a notebook
 import hvplot.pandas  # needed for df.hvplot()
 import holoviews as hv
 from datetime import datetime
+
 from wiscopy.interface import Wisconet
 
 hv.extension('bokeh')
@@ -76,7 +82,7 @@ pixi run start
 ## Wisconet
 
 ### Current stations
-Wisconet's [list of current stations](https://wisconet.wisc.edu/stations.html) shows all active station names. You can get that list of strings via the API as follows:
+Wisconet's [list of current stations](https://wisconet.wisc.edu/stations.html) shows all active station names. You can get also that list of strings in wiscopy with:
 ```python
 from wiscopy.interface import Wisconet
 
@@ -84,7 +90,7 @@ w = Wisconet()
 station_names = w.all_station_names()
 ```
 
-Wisconet also provides a [map](https://wisconet.wisc.edu/maps.html) of those stations with a dropdown menu including some of the currently available fields/variables. You can determine the fields available per station from the API with:
+Wisconet also provides a [map](https://wisconet.wisc.edu/maps.html) of those stations with a dropdown menu including some of the currently available fields/variables. You can determine the fields available per station in wiscopy with:
 
 ```python
 from wiscopy.interface import Wisconet
