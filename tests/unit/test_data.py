@@ -1,13 +1,29 @@
-from datetime import datetime, timedelta
+import pytest
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from wiscopy.data import (
     all_stations,
     station_fields,
     bulk_measures,
-    all_data_for_station,
+    datetime_at_station_in_utc,
 )
 from wiscopy.schema import Station, Field, BulkMeasures
+
+
+@pytest.mark.parametrize(
+    "input_datetime, expected_datetime",
+    [
+        ("2021-01-01T00:00:00", datetime(2021, 1, 1, 6, 0, tzinfo=timezone.utc)),
+        (datetime(2021,1,1), datetime(2021, 1, 1, 6, 0, tzinfo=timezone.utc)),
+    ]
+)
+def test_datetime_at_station_in_utc(input_datetime, expected_datetime):
+    stations = all_stations()
+    this_station = stations[0]
+    station_dt_utc = datetime_at_station_in_utc(station=this_station, dt=input_datetime)
+    assert isinstance(station_dt_utc, datetime), "Expected datetime object"
+    assert station_dt_utc.tzinfo == timezone.utc, "Expected returned datetime object to be in UTC timezone"
 
 
 def test_all_stations():

@@ -50,8 +50,8 @@ nest_asyncio.apply()  # needed to run in notebook
 w = Wisconet()
 df = w.get_data(
     station_ids=["maple", "arlington"],
-    start_time=datetime(2025, 1, 1),
-    end_time=datetime(2025, 2, 1),
+    start_time="2025-01-01",
+    end_time="2025-02-01",
     fields=["60min_air_temp_f_avg"]
 )
 df.hvplot(
