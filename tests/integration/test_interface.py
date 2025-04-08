@@ -48,4 +48,26 @@ def test_wisconet_get_nearest_station(lat, lon, expected_station_name):
     station = w.nearest_station(lat=lat, lon=lon)
     assert isinstance(station, WisconetStation), "Expected a WisconetStation object"
     assert station.station.station_name == expected_station_name, "Expected Verona station"
-    
+
+
+def test_wisconet_get_nearest_stations_top_3():
+    expected_stations_in_order = ['OJNR', 'ALTN', 'GLCP']
+    n = len(expected_stations_in_order)
+    w = Wisconet()
+    stations = w.nearest_stations(lat=43.0747, lon=-89.3841, n=n)
+    assert isinstance(stations, list), "Expected a list of WisconetStation objects"
+    assert len(stations) == n, f"Expected {n} nearest stations"
+    assert all(isinstance(station, WisconetStation) for station, _ in stations), "Expected all elements to be WisconetStation objects"
+    assert [s[0].station.station_id for s in stations] == expected_stations_in_order
+
+
+def test_wisconet_get_nearest_stations_within_100km():
+    range = 100_000
+    expected_stations_in_order = ['OJNR', 'ALTN', 'GLCP']
+    n = len(expected_stations_in_order)
+    w = Wisconet()
+    stations = w.nearest_stations(lat=43.0747, lon=-89.3841, range=range)
+    assert isinstance(stations, list), "Expected a list of WisconetStation objects"
+    assert len(stations) == n, f"Expected {n} nearest stations"
+    assert all(isinstance(station, WisconetStation) for station, _ in stations), "Expected all elements to be WisconetStation objects"
+    assert [s[0].station.station_id for s in stations] == ['OJNR', 'ALTN', 'GLCP']
