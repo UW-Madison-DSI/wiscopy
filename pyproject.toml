@@ -22,6 +22,12 @@ plot = [
     "hvplot>=0.11.2",
     "matplotlib>=3.10.1",
 ]
+docs = [
+    "mkdocs >= 1.6.0",
+    "mkdocs-material >= 9.5.0",
+    "mkdocstrings[python] >= 0.25.0",
+    "mkdocs-jupyter >= 0.24.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/UW-Madison-DSI/wiscopy"
@@ -62,6 +68,8 @@ platforms = ["linux-64", "osx-64", "osx-arm64"]
 wiscopy = { path = ".", editable = true }
 
 [tool.pixi.tasks]
+docs-serve = { cmd = "mkdocs serve", description = "Serve the documentation site locally for development."}
+docs-build = { cmd = "mkdocs build --clean --strict", description = "Build the documentation site."}
 
 [tool.pixi.dependencies]
 pydantic = ">=2.10.6,<3"
@@ -79,6 +87,13 @@ pytest = "*"
 [tool.pixi.feature.plot.dependencies]
 hvplot = "*"
 matplotlib = "*"
+
+[tool.pixi.feature.docs.dependencies]
+mkdocs = ">=1.6.0,<2"
+mkdocs-material = ">=9.5.0,<10"
+mkdocstrings-python = ">=0.25.0"
+mkdocs-jupyter = ">=0.24.0,<0.25"
+python = ">=3.10,<3.13"
 
 [tool.pixi.feature.notebook.tasks]
 start = "jupyter lab notebooks/examples.ipynb"
@@ -99,6 +114,7 @@ uvx twine check --strict dist/*
 """
 
 [tool.pixi.environments]
-dev = ["dev", "plot", "test"]
+docs = ["docs"]
+dev = ["dev", "plot", "test", "docs"]
 notebook = ["plot", "notebook"]
 build = {features = ["build"], no-default-feature = true}

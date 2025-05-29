@@ -1,0 +1,55 @@
+site_name: Wiscopy
+site_url: https://uw-madison-dsi.github.io/wiscopy/
+repo_url: https://github.com/UW-Madison-DSI/wiscopy
+repo_name: UW-Madison-DSI/wiscopy
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.annotation
+    - content.code.copy
+  language: en
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - scheme: slate
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - Quick Start: quickstart.md
+  - User Guide: user_guide.md
+  - API Reference: api_reference.md
+  - Examples: examples.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_root_heading: true
+            show_source: true
+            members_order: source
+            filters: ["!^_"] # Exclude members starting with an underscore
+            separate_signature: true
+            line_length: 88
+            show_signature_annotations: true
+            show_if_no_docstring: true
+  - mkdocs-jupyter:
+      include_source: True
+      execute: False # Assuming notebooks are pre-executed
