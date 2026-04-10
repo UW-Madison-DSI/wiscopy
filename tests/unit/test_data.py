@@ -1,5 +1,6 @@
 import pytest
 from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock, patch
 from zoneinfo import ZoneInfo
 
 from wiscopy.data import (
@@ -9,6 +10,36 @@ from wiscopy.data import (
     datetime_at_station_in_utc,
 )
 from wiscopy.schema import Station, Field, BulkMeasures
+
+
+SAMPLE_FIELDS_JSON = [
+    {
+        "id": 1,
+        "standard_name": "5min_air_temp_f_avg",
+        "use_for": "",
+        "measure_type": "Air Temp",
+        "qualifier": "avg",
+        "sensor": "",
+        "source_field": "airtemp_c_avg@Table5",
+        "data_type": "float",
+        "source_units": "celsius",
+        "final_units": "fahrenheit",
+        "units_abbrev": "f",
+        "conversion_type": "c2f",
+        "collection_frequency": "5min",
+    }
+]
+
+
+def _mock_client(status_code: int, json_data=None) -> MagicMock:
+    response = MagicMock()
+    response.status_code = status_code
+    response.json.return_value = json_data if json_data is not None else []
+    client = MagicMock()
+    client.__enter__ = MagicMock(return_value=client)
+    client.__exit__ = MagicMock(return_value=False)
+    client.get.return_value = response
+    return client
 
 
 @pytest.mark.parametrize(
@@ -42,6 +73,29 @@ def test_station_fields():
     assert len(fields) > 0, "Expected non-empty list of fields"
     assert isinstance(fields, list), "Expected fields to be a list"
     assert all(isinstance(field, Field) for field in fields), "Expected all items in fields to be strings"
+
+
+def test_station_fields_fallback_to_all_fields():
+    """When the station-specific endpoint returns non-200, falls back to the all-fields endpoint."""
+    first = _mock_client(404)
+    second = _mock_client(200, SAMPLE_FIELDS_JSON)
+    with patch("wiscopy.data.httpx.Client", side_effect=[first, second]):
+        fields = station_fields("NONEXISTENT")
+    assert isinstance(fields, list)
+    assert len(fields) == 1
+    assert all(isinstance(f, Field) for f in fields)
+    assert fields[0].standard_name == "5min_air_temp_f_avg"
+
+
+def test_station_fields_fallback_to_cached_fields():
+    """When both HTTP endpoints fail, falls back to loading fields from the local JSON cache."""
+    first = _mock_client(404)
+    second = _mock_client(503)
+    with patch("wiscopy.data.httpx.Client", side_effect=[first, second]):
+        fields = station_fields("NONEXISTENT")
+    assert isinstance(fields, list)
+    assert len(fields) > 0
+    assert all(isinstance(f, Field) for f in fields)
 
 
 def test_bulk_measures():

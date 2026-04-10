@@ -1,7 +1,10 @@
+import json
 import time
 import httpx
+import logging
 import asyncio
 import pandas as pd
+from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from aiolimiter import AsyncLimiter
@@ -15,6 +18,10 @@ from wiscopy.process import (
 
 RATE_LIMIT_CALLS = 20
 RATE_LIMIT_PERIOD = 20.0
+CACHED_FIELDS_JSON = Path(__file__).parent.parent.parent / "data" / "cached_fields.json"
+
+
+logger = logging.getLogger(__name__)
 
 
 class RetryTransport(httpx.BaseTransport):
@@ -103,7 +110,19 @@ def station_fields(station_id: str) -> list[Field]:
     route = f"/fields/{station_id}/available_fields"
     with httpx.Client(base_url=BASE_URL, transport=RetryTransport()) as client:
         response = client.get(route)
-        response.raise_for_status()
+    
+    if response.status_code != 200:
+        logger.warning(f"{BASE_URL}{route} returned HTTP {response.status_code}, defaulting to all fields")
+        route = "https://wisconet.wisc.edu/api/v1/fields/"
+        with httpx.Client(base_url=BASE_URL, transport=RetryTransport()) as client:
+            response = client.get(route)
+    
+    if response.status_code != 200:
+        logger.warning(f"{BASE_URL}{route} returned HTTP {response.status_code}, defaulting to all cached fields")
+        with open(CACHED_FIELDS_JSON, 'r') as f:
+            response_json = json.load(f)
+        return [Field(**field) for field in response_json]
+
     return [Field(**field) for field in response.json()]
 
 
