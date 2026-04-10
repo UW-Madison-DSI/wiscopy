@@ -1,3 +1,4 @@
+import os
 import json
 import time
 import httpx
@@ -18,8 +19,8 @@ from wiscopy.process import (
     multiple_bulk_measures_to_df
 )
 
-RATE_LIMIT_CALLS = 20
-RATE_LIMIT_PERIOD = 20.0
+RATE_LIMIT_CALLS = os.environ.get("WISCONET_RATE_LIMIT_CALLS", 20)
+RATE_LIMIT_PERIOD = os.environ.get("WISCONET_LIMIT_PERIOD", 20.0)
 CACHED_FIELDS_JSON = Path(__file__).parent.parent.parent / "data" / "cached_fields.json"
 
 
