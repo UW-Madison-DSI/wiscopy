@@ -4,7 +4,7 @@ readme = "README.md"
 description = "A Python API wrapper for the Wisconsin environmental mesonet API: Wisconet"
 dependencies = [
     "pydantic>=2.12.5,<3",
-    "httpx>=0.28.1,<0.29",
+    "httpx>=0.28.1,<1",
     "pandas>=3.0.2,<4",
     "aiolimiter>=1.2.1,<2",
     "tqdm>=4.0",
@@ -50,7 +50,6 @@ targets.sdist.include = [
 ]
 targets.sdist.exclude = [
     "/tests",
-    "/data"
 ]
 targets.wheel.packages = ["src/wiscopy"]
 
@@ -69,7 +68,7 @@ wiscopy = { path = ".", editable = true }
 
 [tool.pixi.dependencies]
 pydantic = ">=2.12.5,<3"
-httpx = ">=0.28.1,<0.29"
+httpx = ">=0.28.1,<1"
 pandas = ">=3.0.2,<4"
 aiolimiter = ">=1.2.1,<2"
 tqdm = ">=4.0"
@@ -85,6 +84,7 @@ ipykernel = ">=7.2.0,<8"
 hatch = "*"
 pytest-asyncio = "*"
 ipywidgets = ">=8.1.8,<9"
+jupyter = ">=1.1.1,<2"
 
 [tool.pixi.feature.plot.dependencies]
 hvplot = "*"
@@ -96,7 +96,6 @@ start = "jupyter lab notebooks/examples.ipynb"
 
 [tool.pixi.feature.notebook.dependencies]
 jupyterlab = "*"
-notebook = "*"
 ipywidgets = ">=8.1.8,<9"
 
 
@@ -113,6 +112,6 @@ uvx twine check --strict dist/*
 
 
 [tool.pixi.environments]
-dev = ["plot", "dev", "notebook"]
+dev = ["plot", "dev"]
 notebook = ["plot", "notebook"]
 build = { features = ["build"], no-default-feature = true }
