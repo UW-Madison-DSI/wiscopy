@@ -3,7 +3,9 @@ import time
 import httpx
 import logging
 import asyncio
+import concurrent.futures
 import pandas as pd
+from tqdm.auto import tqdm
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
@@ -224,6 +226,22 @@ async def gather_async_bulk_measure_data(station_id: str, start_time: datetime, 
     )
 
 
+async def _fetch_chunks(
+    station_id: str, start_time_utc: datetime, end_time_utc: datetime,
+    chunk_days: int, fields: list[str] | None, timeout: float, limits: httpx.Limits | None,
+) -> list[BulkMeasures]:
+    transport = RateLimitedRetryTransport(limits=limits)
+    client = httpx.AsyncClient(base_url=BASE_URL, timeout=timeout, transport=transport)
+    return await gather_async_bulk_measure_data(
+        station_id=station_id,
+        start_time=start_time_utc,
+        end_time=end_time_utc,
+        chunk_days=chunk_days,
+        client=client,
+        fields=fields,
+    )
+
+
 def bulk_fetch(station: Station, start_time: datetime, end_time: datetime, fields: list[str] | None = None, duration_days=30, timeout=60.0, limits: httpx.Limits | None = None) -> pd.DataFrame | None:
     """
     Get data for a Station, uses async requests to fetch data in chunks, use this to fetch large amounts of data.
@@ -235,18 +253,29 @@ def bulk_fetch(station: Station, start_time: datetime, end_time: datetime, field
     """
     start_time_utc = datetime_at_station_in_utc(station=station, dt=start_time)
     end_time_utc = datetime_at_station_in_utc(station=station, dt=end_time)
-    transport = RateLimitedRetryTransport(limits=limits)
-    client = httpx.AsyncClient(base_url=BASE_URL, timeout=timeout, transport=transport)
-    bulk_measures_list = asyncio.run(
-        gather_async_bulk_measure_data(
-            station_id=station.station_id,
-            start_time=start_time_utc,
-            end_time=end_time_utc,
-            chunk_days=duration_days,
-            client=client,
-            fields=fields,
+
+    def _run():
+        # Use new_event_loop + run_until_complete instead of asyncio.run() to bypass
+        # nest_asyncio's global patch, which reroutes asyncio.run() back to the outer
+        # notebook loop and causes sniffio/anyio failures.
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(
+                _fetch_chunks(station.station_id, start_time_utc, end_time_utc, duration_days, fields, timeout, limits)
+            )
+        finally:
+            loop.close()
+
+    try:
+        asyncio.get_running_loop()
+        # Inside a running event loop (e.g. Jupyter): run in a thread with its own
+        # fresh event loop to avoid nest_asyncio/anyio CancelScope conflicts.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            bulk_measures_list = pool.submit(_run).result()
+    except RuntimeError:
+        bulk_measures_list = asyncio.run(
+            _fetch_chunks(station.station_id, start_time_utc, end_time_utc, duration_days, fields, timeout, limits)
         )
-    )
     return multiple_bulk_measures_to_df(bulk_measures_list, tz=station.station_timezone, station_id=station.station_id)
 
 
@@ -279,6 +308,7 @@ def fetch_data_multiple_stations(
     fields: list[str],
     limits: httpx.Limits | None = None,
     duration_days: int = 30,
+    timeout: float = 60.0, 
 ) -> pd.DataFrame:
     """
     Get data from multiple stations.
@@ -291,14 +321,14 @@ def fetch_data_multiple_stations(
     :return: pd.DataFrame or None if no data.
     """
     station_dfs = []
-    for station in stations:
+    for station in tqdm(stations, desc="Fetching data", unit="station"):
         station_df = bulk_fetch(
             station=station,
             start_time=start_time,
             end_time=end_time,
             fields=fields,
             duration_days=duration_days,
-            timeout=60.0,
+            timeout=timeout,
             limits=limits,
         )
         if station_df is not None:
