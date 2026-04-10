@@ -1,62 +1,16 @@
 [project]
-authors = [{name = "Iain McConnell", email = "ilmcconnell@github.id"}]
-readme = "README.md"
-description = "A Python API wrapper for the Wisconsin environmental mesonet API: Wisconet"
-dependencies = [
-    "pydantic >= 2.10.6",
-    "httpx >= 0.28.1",
-    "pandas >= 2.2.3",
-]
+dependencies = []
 name = "wiscopy"
-requires-python = ">= 3.10"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Operating System :: OS Independent",
-]
-license = "MIT"
-license-files = ["LICENSE"]
-dynamic = ["version"]
-
-[project.optional-dependencies]
-plot = [
-    "hvplot>=0.11.2",
-    "matplotlib>=3.10.1",
-]
-
-[project.urls]
-Homepage = "https://github.com/UW-Madison-DSI/wiscopy"
-Issues = "https://github.com/UW-Madison-DSI/wiscopy/issues"
+requires-python = ">= 3.11"
+version = "0.1.0"
 
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
-
-[tool.hatch.version]
-source = "vcs"
-raw-options.version_scheme = "no-guess-dev"
-
-[tool.hatch.build]
-hooks.vcs.version-file = "src/wiscopy/_version.py"
-targets.sdist.ignore-vcs = true
-targets.sdist.include = [
-    "LICENSE",
-    "README.md",
-    "pyproject.toml",
-    "pixi.lock",
-    "/src"
-]
-targets.sdist.exclude = [
-    "/tests",
-    "/data"
-]
-targets.wheel.packages = ["src/wiscopy"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
+requires = ["hatchling"]
 
 [tool.pixi.workspace]
 channels = ["conda-forge"]
-platforms = ["linux-64", "osx-64", "osx-arm64"]
+platforms = ["osx-arm64"]
 
 [tool.pixi.pypi-dependencies]
 wiscopy = { path = ".", editable = true }
@@ -64,41 +18,34 @@ wiscopy = { path = ".", editable = true }
 [tool.pixi.tasks]
 
 [tool.pixi.dependencies]
-pydantic = ">=2.10.6,<3"
+pydantic = ">=2.12.5,<3"
 httpx = ">=0.28.1,<0.29"
-pandas = ">=2.2.3,<3"
-python = ">=3.10,<3.13"
+pandas = ">=3.0.2,<4"
+aiolimiter = ">=1.2.1,<2"
+
+[tool.pixi.feature.dev.tasks]
+test = "pytest tests/unit/"
+test-integration = "pytest tests/integration/"
 
 [tool.pixi.feature.dev.dependencies]
-ipykernel = ">=6.29.5,<7"
-hatch = ">=1.14.0,<2"
-
-[tool.pixi.feature.test.dependencies]
 pytest = "*"
+ruff = "*"
+ipykernel = "*"
+hatch = "*"
+pytest-asyncio = "*"
 
 [tool.pixi.feature.plot.dependencies]
 hvplot = "*"
 matplotlib = "*"
 
-[tool.pixi.feature.notebook.tasks]
-start = "jupyter lab notebooks/examples.ipynb"
-
 [tool.pixi.feature.notebook.dependencies]
-notebook = ">=7.3.3,<8"
-jupyterlab = ">=4.3.6,<5"
+jupyterlab = "*"
+notebook = "*"
 
 [tool.pixi.feature.build.dependencies]
 uv = "*"
 
-[tool.pixi.feature.build.tasks.build]
-description = "Build a sdist and wheel"
-cmd = """
-rm -rf dist && \
-uvx --from build pyproject-build && \
-uvx twine check --strict dist/*
-"""
-
 [tool.pixi.environments]
-dev = ["dev", "plot", "test"]
+dev = ["plot", "dev"]
 notebook = ["plot", "notebook"]
-build = {features = ["build"], no-default-feature = true}
+build = { features = ["build"], no-default-feature = true }

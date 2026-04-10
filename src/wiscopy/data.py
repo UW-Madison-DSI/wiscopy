@@ -1,16 +1,67 @@
+import time
 import httpx
 import asyncio
 import pandas as pd
-from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
+from aiolimiter import AsyncLimiter
 
 from wiscopy.schema import (
-       BASE_URL, Station, Field, BulkMeasures, 
+       BASE_URL, Station, Field, BulkMeasures,
 )
 from wiscopy.process import (
     multiple_bulk_measures_to_df
 )
+
+RATE_LIMIT_CALLS = 20
+RATE_LIMIT_PERIOD = 20.0
+
+
+class RetryTransport(httpx.BaseTransport):
+    """Sync transport that retries on 429 with Retry-After or exponential backoff."""
+
+    def __init__(self, max_retries: int = 3) -> None:
+        self._transport = httpx.HTTPTransport()
+        self._max_retries = max_retries
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        for attempt in range(self._max_retries + 1):
+            response = self._transport.handle_request(request)
+            if response.status_code != 429 or attempt == self._max_retries:
+                return response
+            response.close()
+            retry_after = float(response.headers.get("Retry-After", 2 ** attempt))
+            time.sleep(retry_after)
+
+    def close(self) -> None:
+        self._transport.close()
+
+
+class RateLimitedRetryTransport(httpx.AsyncBaseTransport):
+    """Async transport that rate-limits requests and retries on 429."""
+
+    def __init__(
+        self,
+        limits: httpx.Limits | None = None,
+        max_retries: int = 3,
+    ) -> None:
+        limits = limits or httpx.Limits(max_keepalive_connections=5, max_connections=5)
+        self._transport = httpx.AsyncHTTPTransport(limits=limits)
+        self._limiter = AsyncLimiter(RATE_LIMIT_CALLS, RATE_LIMIT_PERIOD)
+        self._max_retries = max_retries
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        for attempt in range(self._max_retries + 1):
+            async with self._limiter:
+                response = await self._transport.handle_async_request(request)
+            if response.status_code != 429 or attempt == self._max_retries:
+                return response
+            await response.aclose()
+            retry_after = float(response.headers.get("Retry-After", 2 ** attempt))
+            await asyncio.sleep(retry_after)
+
+    async def aclose(self) -> None:
+        await self._transport.aclose()
 
 
 def all_stations() -> list[Station]:
@@ -20,10 +71,10 @@ def all_stations() -> list[Station]:
     """
     route = "/stations/"
     stations = []
-    with httpx.Client(base_url=BASE_URL) as client:
+    with httpx.Client(base_url=BASE_URL, transport=RetryTransport()) as client:
         response = client.get(route)
         response.raise_for_status()
-    
+
     for station in response.json():
         station_tz = station.pop("station_timezone")
         earliest_api_date = datetime.strptime(station.pop("earliest_api_date"), "%m/%d/%Y")
@@ -50,7 +101,7 @@ def station_fields(station_id: str) -> list[Field]:
     :return: list of Field objects
     """
     route = f"/fields/{station_id}/available_fields"
-    with httpx.Client(base_url=BASE_URL) as client:
+    with httpx.Client(base_url=BASE_URL, transport=RetryTransport()) as client:
         response = client.get(route)
         response.raise_for_status()
     return [Field(**field) for field in response.json()]
@@ -71,7 +122,7 @@ def datetime_at_station_in_utc(station: Station, dt: datetime | str) -> datetime
         .replace(tzinfo=ZoneInfo(station.station_timezone))
         .astimezone(timezone.utc)
     )
-    
+
 
 def bulk_measures(station_id: str, start_time: datetime, end_time: datetime, fields: list[str] | None = None, timeout: float = 30.0) -> BulkMeasures:
     """
@@ -92,7 +143,7 @@ def bulk_measures(station_id: str, start_time: datetime, end_time: datetime, fie
     }
     if fields:
         params["fields"] = ",".join(fields)
-    with httpx.Client(base_url=BASE_URL, timeout=timeout) as client:
+    with httpx.Client(base_url=BASE_URL, timeout=timeout, transport=RetryTransport()) as client:
         response = client.get(route, params=params)
         response.raise_for_status()
     return BulkMeasures(**response.json())
@@ -106,7 +157,6 @@ async def async_bulk_measures(
     :param start_time: datetime, fetch start time in UTC.
     :param end_time: datetime fetch end time in UTC
     :param fields: optional list of Field.standard_name strings of fields to return. If not specified, returns all fields.
-    :param timeout: float, httpx timeout.
     :return: BulkMeasures object
     """
     start_time_epoch = int(start_time.timestamp())
@@ -118,7 +168,7 @@ async def async_bulk_measures(
     }
     if fields:
         params["fields"] = ",".join(fields)
-    
+
     response = await client.get(route, params=params)
     response.raise_for_status()
     return BulkMeasures(**response.json())
@@ -132,13 +182,12 @@ async def gather_async_bulk_measure_data(station_id: str, start_time: datetime, 
     :param end_time: datetime fetch end time in UTC
     :param chunk_days: int, number of days to fetch data for in each async task/chunk.
     :param fields: optional list of Field.standard_name strings of fields to return. If not specified, returns all fields.
-    :param timeout: float, httpx timeout.
-    :return: BulkMeasures object
+    :return: list of BulkMeasures objects
     """
     total_time_delta = end_time - start_time
     task_start_and_end_dts = [
         (
-            start_time + timedelta(days=i*chunk_days), 
+            start_time + timedelta(days=i*chunk_days),
             start_time + timedelta(days=(i+1)*chunk_days) if start_time + timedelta(days=(i+1)*chunk_days) < end_time else end_time
         )
         for i in range(0, total_time_delta.days // chunk_days + 1)
@@ -146,12 +195,12 @@ async def gather_async_bulk_measure_data(station_id: str, start_time: datetime, 
     ]
     return await asyncio.gather(
         *[async_bulk_measures(
-                station_id=station_id, 
-                start_time=start_time, 
-                end_time=end_time, 
-                client=client, 
-                fields=fields, 
-            ) 
+                station_id=station_id,
+                start_time=start_time,
+                end_time=end_time,
+                client=client,
+                fields=fields,
+            )
           for start_time, end_time in task_start_and_end_dts]
     )
 
@@ -159,18 +208,17 @@ async def gather_async_bulk_measure_data(station_id: str, start_time: datetime, 
 def bulk_fetch(station: Station, start_time: datetime, end_time: datetime, fields: list[str] | None = None, duration_days=30, timeout=60.0, limits: httpx.Limits | None = None) -> pd.DataFrame | None:
     """
     Get data for a Station, uses async requests to fetch data in chunks, use this to fetch large amounts of data.
-    :param s: Station object.
+    :param station: Station object.
     :param fields: optional list of Field.standard_name strings of fields to return. If not specified, returns all fields.
     :param timeout: float, httpx timeout.
-    :param limits: optional httpx.Limits object for AsyncClient if None defaults to 5 max_keepalive_connections and 5 max_connections
-    :return: BulkMeasures object.
+    :param limits: optional httpx.Limits object; defaults to 5 max_keepalive_connections and 5 max_connections.
+    :return: DataFrame or None.
     """
     start_time_utc = datetime_at_station_in_utc(station=station, dt=start_time)
     end_time_utc = datetime_at_station_in_utc(station=station, dt=end_time)
-    if not limits:
-        limits = httpx.Limits(max_keepalive_connections=5, max_connections=5)
-    client = httpx.AsyncClient(base_url=BASE_URL, timeout=timeout, limits=limits)
-    bulk_measures = asyncio.run(
+    transport = RateLimitedRetryTransport(limits=limits)
+    client = httpx.AsyncClient(base_url=BASE_URL, timeout=timeout, transport=transport)
+    bulk_measures_list = asyncio.run(
         gather_async_bulk_measure_data(
             station_id=station.station_id,
             start_time=start_time_utc,
@@ -180,7 +228,7 @@ def bulk_fetch(station: Station, start_time: datetime, end_time: datetime, field
             fields=fields,
         )
     )
-    return multiple_bulk_measures_to_df(bulk_measures, tz=station.station_timezone, station_id=station.station_id)
+    return multiple_bulk_measures_to_df(bulk_measures_list, tz=station.station_timezone, station_id=station.station_id)
 
 
 def all_data_for_station(s: Station, fields: list[str] | None = None, duration_days=30, timeout=60.0, limits: httpx.Limits | None = None) -> pd.DataFrame | None:
@@ -189,19 +237,18 @@ def all_data_for_station(s: Station, fields: list[str] | None = None, duration_d
     :param s: Station object.
     :param fields: optional list of Field.standard_name strings of fields to return. If not specified, returns all fields.
     :param timeout: float, httpx timeout.
-    :param limits: optional httpx.Limits object for AsyncClient if None defaults to 5 max_keepalive_connections and 5 max_connections
-    :return: BulkMeasures object.
+    :param limits: optional httpx.Limits object; defaults to 5 max_keepalive_connections and 5 max_connections.
+    :return: DataFrame or None.
     """
-
     start_time=datetime_at_station_in_utc(station=s, dt=s.earliest_api_date)
     end_time=datetime_at_station_in_utc(station=s, dt=datetime.now())
     return bulk_fetch(
-        station=s, 
-        start_time=start_time, 
-        end_time=end_time, 
-        fields=fields, 
-        duration_days=duration_days, 
-        timeout=timeout, 
+        station=s,
+        start_time=start_time,
+        end_time=end_time,
+        fields=fields,
+        duration_days=duration_days,
+        timeout=timeout,
         limits=limits
     )
 
@@ -216,17 +263,14 @@ def fetch_data_multiple_stations(
 ) -> pd.DataFrame:
     """
     Get data from multiple stations.
-    :param station_ids: list of station_ids e.g ["ALTN", "ALTN2"]
+    :param stations: list of Station objects.
     :param start_time: datetime, fetch start time in local station time.
-    :param end_time: datetime fetch end time in local station time."
+    :param end_time: datetime fetch end time in local station time.
     :param fields: list of Field.standard_name strings of fields to return.
-    :param limits: optional httpx.Limits object for AsyncClient if None defaults to 5 max_keepalive_connections and 5 max_connections
+    :param limits: optional httpx.Limits object; defaults to 5 max_keepalive_connections and 5 max_connections.
     :param duration_days: int, number of days to fetch data for in each async task.
     :return: pd.DataFrame or None if no data.
     """
-    if not limits:
-        limits = httpx.Limits(max_keepalive_connections=5, max_connections=5)
-    
     station_dfs = []
     for station in stations:
         station_df = bulk_fetch(
@@ -240,5 +284,5 @@ def fetch_data_multiple_stations(
         )
         if station_df is not None:
             station_dfs.append(station_df)
-    
+
     return pd.concat(station_dfs) if station_dfs else None

@@ -183,3 +183,6 @@ notebooks/scratch.ipynb
 # hatch version file
 src/wiscopy/_version.py
 
+# pixi environments
+.pixi/*
+!.pixi/config.toml

@@ -61,6 +61,20 @@ def test_wisconet_get_nearest_stations_top_3():
     assert [s[0].station.station_id for s in stations] == expected_stations_in_order
 
 
+def test_large_date_range_respects_rate_limit():
+    """Fetch ~6 months of data (~6 async chunks) to verify rate limiting doesn't error."""
+    from datetime import datetime
+    w = Wisconet()
+    df = w.get_data(
+        station_ids=["arlington"],
+        start_time=datetime(2024, 1, 1),
+        end_time=datetime(2024, 7, 1),
+        fields=["60min_air_temp_f_avg"],
+    )
+    assert df is not None
+    assert not df.empty
+
+
 def test_wisconet_get_nearest_stations_within_100km():
     range = 100_000
     expected_stations_in_order = ['OJNR', 'ALTN', 'GLCP']

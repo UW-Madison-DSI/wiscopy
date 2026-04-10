@@ -2,7 +2,7 @@ import pytest
 
 from wiscopy.data import all_stations
 from wiscopy.interface import WisconetStation
-from utilities import within
+from .utilities import within
 
 
 @pytest.mark.parametrize(
