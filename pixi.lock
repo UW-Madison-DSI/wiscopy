@@ -7918,8 +7918,8 @@ packages:
   timestamp: 1762040404362
 - pypi: ./
   name: wiscopy
-  version: 0.1.5.post1.dev9+g10bcd441e
-  sha256: 81dcfa9f1255b18b9fcccf17563fae53c0a3a6c68038b311e1456eed3e8de545
+  version: 0.1.5.post1.dev10+gbd9ca5466.d20260415
+  sha256: f9b62d82747e9ee6a395edf5fa68bd0655cddf2bd3c16bf737f4175e659c4bfb
   requires_dist:
   - aiolimiter>=1.2.1,<2
   - httpx>=0.28.1,<1

@@ -78,7 +78,8 @@ test-integration = "pytest tests/integration/"
 format = "ruff format ."
 format-check = "ruff format --check ."
 lint = "ruff check ."
-pre-push = { depends-on = ["format", "lint", "test"], description = "Format, lint, and run unit tests before pushing" }
+sync-lock = { cmd = "pixi install && git diff --exit-code pixi.lock || (echo 'pixi.lock was updated — commit it before pushing' && exit 1)", description = "Sync and verify pixi.lock is committed" }
+pre-push = { depends-on = ["sync-lock", "format", "lint", "test"], description = "Sync lock, format, lint, and run unit tests before pushing" }
 ci = { depends-on = ["format-check", "lint", "test"], description = "CI: verify formatting, lint, and run unit tests" }
 
 [tool.pixi.feature.dev.dependencies]
