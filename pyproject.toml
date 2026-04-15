@@ -3,9 +3,11 @@ authors = [{name = "Iain McConnell", email = "ilmcconnell@github.id"}]
 readme = "README.md"
 description = "A Python API wrapper for the Wisconsin environmental mesonet API: Wisconet"
 dependencies = [
-    "pydantic >= 2.10.6",
-    "httpx >= 0.28.1",
-    "pandas >= 2.2.3",
+    "pydantic>=2.12.5,<3",
+    "httpx>=0.28.1,<1",
+    "pandas>=3.0.2,<4",
+    "aiolimiter>=1.2.1,<2",
+    "tqdm>=4.0",
 ]
 name = "wiscopy"
 requires-python = ">= 3.10"
@@ -43,16 +45,16 @@ targets.sdist.include = [
     "README.md",
     "pyproject.toml",
     "pixi.lock",
-    "/src"
+    "/src",
 ]
 targets.sdist.exclude = [
     "/tests",
-    "/data"
 ]
 targets.wheel.packages = ["src/wiscopy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [tool.pixi.workspace]
 channels = ["conda-forge"]
@@ -64,28 +66,43 @@ wiscopy = { path = ".", editable = true }
 [tool.pixi.tasks]
 
 [tool.pixi.dependencies]
-pydantic = ">=2.10.6,<3"
-httpx = ">=0.28.1,<0.29"
-pandas = ">=2.2.3,<3"
-python = ">=3.10,<3.13"
+pydantic = ">=2.12.5,<3"
+httpx = ">=0.28.1,<1"
+pandas = ">=3.0.2,<4"
+aiolimiter = ">=1.2.1,<2"
+tqdm = ">=4.0"
+
+[tool.pixi.feature.dev.tasks]
+test = "pytest tests/unit/"
+test-integration = "pytest tests/integration/"
+format = "ruff format ."
+format-check = "ruff format --check ."
+lint = "ruff check ."
+sync-lock = { cmd = "pixi install && git diff --exit-code pixi.lock || (echo 'pixi.lock was updated — commit it before pushing' && exit 1)", description = "Sync and verify pixi.lock is committed" }
+pre-push = { depends-on = ["sync-lock", "format", "lint", "test"], description = "Sync lock, format, lint, and run unit tests before pushing" }
+ci = { depends-on = ["format-check", "lint", "test"], description = "CI: verify formatting, lint, and run unit tests" }
 
 [tool.pixi.feature.dev.dependencies]
-ipykernel = ">=6.29.5,<7"
-hatch = ">=1.14.0,<2"
-
-[tool.pixi.feature.test.dependencies]
 pytest = "*"
+ruff = "*"
+ipykernel = ">=7.2.0,<8"
+hatch = "*"
+pytest-asyncio = "*"
+ipywidgets = ">=8.1.8,<9"
+jupyter = ">=1.1.1,<2"
 
 [tool.pixi.feature.plot.dependencies]
 hvplot = "*"
 matplotlib = "*"
 
+
 [tool.pixi.feature.notebook.tasks]
 start = "jupyter lab notebooks/examples.ipynb"
 
 [tool.pixi.feature.notebook.dependencies]
-notebook = ">=7.3.3,<8"
-jupyterlab = ">=4.3.6,<5"
+jupyterlab = "*"
+ipywidgets = ">=8.1.8,<9"
+
 
 [tool.pixi.feature.build.dependencies]
 uv = "*"
@@ -98,7 +115,17 @@ uvx --from build pyproject-build && \
 uvx twine check --strict dist/*
 """
 
+[tool.pixi.feature.ci-test.dependencies]
+pytest = "*"
+python = "*"
+pytest-asyncio = ">=1.3.0,<2"
+
+[tool.pixi.feature.ci-test.tasks]
+test-wheel = { cmd = "uv pip install dist/*.whl && pytest tests/unit", depends-on = ["build"] }
+
+
 [tool.pixi.environments]
-dev = ["dev", "plot", "test"]
+dev = ["plot", "dev"]
 notebook = ["plot", "notebook"]
-build = {features = ["build"], no-default-feature = true}
+build = { features = ["build"], no-default-feature = true }
+clean-room = { features = ["ci-test", "build"], no-default-feature = true }

@@ -5,6 +5,7 @@ Python wrapper for [Wisconet](https://wisconet.wisc.edu/). Currently supporting 
 1. Easy to use interface: simply specify the stations, datetime range, and fields you want
 2. Data automatically formatted into a pandas DataFrame
 3. Fetch large amounts of data with transparent concurrency
+4. Automatically respect Wisconet rate limiting (20 requests / 20 seconds)
 
 ## Install
 
@@ -14,13 +15,13 @@ Python wrapper for [Wisconet](https://wisconet.wisc.edu/). Currently supporting 
 
 To install `wiscopy` from [PyPI](https://pypi.org/project/wiscopy/) run
 
-```
+```bash
 python -m pip install wiscopy
 ```
 
 #### install with plotting library dependencies
 
-```
+```bash
 python -m pip install 'wiscopy[plot]'
 ```
 
@@ -28,13 +29,13 @@ python -m pip install 'wiscopy[plot]'
 
 To install and add `wiscopy` to a project from [conda-forge](https://github.com/conda-forge/wiscopy-feedstock) with [Pixi](https://pixi.sh/), from the project directory run
 
-```
+```bash
 pixi add wiscopy
 ```
 
 and to install into a particular conda environment with [`conda`](https://docs.conda.io/projects/conda/), in the activated environment run
 
-```
+```bash
 conda install --channel conda-forge wiscopy
 ```
 
@@ -42,7 +43,6 @@ conda install --channel conda-forge wiscopy
 
 ### Fetch data from multiple stations, create a Dataframe, and plot.
 ```python
-import nest_asyncio  # needed to run wiscopy in a notebook
 import hvplot.pandas  # needed for df.hvplot()
 import holoviews as hv
 from datetime import datetime
@@ -51,7 +51,6 @@ from wiscopy.interface import Wisconet
 
 hv.extension('bokeh')
 hv.plotting.bokeh.element.ElementPlot.active_tools = ["box_zoom"]
-nest_asyncio.apply()  # needed to run in notebook
 
 w = Wisconet()
 df = w.get_data(
@@ -75,7 +74,7 @@ df.hvplot(
 ### More examples
 see more examples in [notebooks/examples.ipynb](https://github.com/UW-Madison-DSI/wiscopy/blob/main/notebooks/examples.ipynb), or run
 
-```
+```bash
 pixi run start
 ```
 
@@ -102,7 +101,7 @@ fields = this_station.get_field_names()
 ```
 
 
-## dev install (contribute!)
+## dev install instructions 
 ### 1. install pixi
 See [pixi install guide](https://pixi.sh/latest/advanced/installation/).
 
@@ -116,3 +115,32 @@ git clone git@github.com:UW-Madison-DSI/wiscopy.git
 cd wiscopy
 pixi install
 ```
+
+### 4. run tests
+```bash
+pixi run test
+```
+
+### 5. auto fix ruff linting issues
+```bash
+pixi run -e dev ruff check --fix .  
+```
+
+### 6. run all pre-push checks (format, lint, tests)
+```bash
+pixi run pre-push  
+```
+
+### 7. build package
+```bash
+pixi run build
+```
+
+### 8. run package build, install, and test in clean environment:
+```bash
+pixi run -e clean-room test-wheel
+```
+
+
+## Contribute
+Pull requests welcome! All pull requests must be formated, linted and pass tests

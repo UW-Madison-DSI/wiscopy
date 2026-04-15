@@ -19,21 +19,25 @@ def filter_fields(fields: list[Field], criteria: list[Enum]) -> list[str]:
     criteria_by_type = {}
     all_criteria_types = list(set([c.__class__ for c in criteria]))
     for criteria_type in all_criteria_types:
-        criteria_by_type[criteria_type] = [c.value for c in criteria if isinstance(c, criteria_type)]
+        criteria_by_type[criteria_type] = [
+            c.value for c in criteria if isinstance(c, criteria_type)
+        ]
 
     for criteria_type, criteria in criteria_by_type.items():
         if not criteria:
             continue
         fields = [
-            field 
-            for field in fields 
+            field
+            for field in fields
             if field.model_dump()[criteria_type_to_field[criteria_type]] in criteria
         ]
 
     return [field.standard_name for field in fields]
 
 
-def bulk_measures_to_df(bms: BulkMeasures, tz: str | None = None, station_id: str = "") -> pd.DataFrame | None:
+def bulk_measures_to_df(
+    bms: BulkMeasures, tz: str | None = None, station_id: str = ""
+) -> pd.DataFrame | None:
     """
     Convert BulkMeasures object to a pandas DataFrame.
     :param bms: BulkMeasures object.
@@ -53,25 +57,29 @@ def bulk_measures_to_df(bms: BulkMeasures, tz: str | None = None, station_id: st
                 "value": value,
             } | {k: v for k, v in field.model_dump().items()}
             rows.append(row)
-    
+
     df = pd.DataFrame(rows)
-    
+
     if df.empty:
         return None
-    
+
     if station_id:
         df["station_id"] = station_id
-    
+
     if tz:
-        df["collection_time"] = pd.to_datetime(df["collection_time"], utc=True).dt.tz_convert(tz)
+        df["collection_time"] = pd.to_datetime(
+            df["collection_time"], utc=True
+        ).dt.tz_convert(tz)
     else:
         df["collection_time"] = pd.to_datetime(df["collection_time"], utc=True)
-    
+
     df.set_index("collection_time", inplace=True)
     return df
 
 
-def multiple_bulk_measures_to_df(bulk_measures: list[BulkMeasures], tz: str | None = None, station_id: str = "") -> pd.DataFrame | None:
+def multiple_bulk_measures_to_df(
+    bulk_measures: list[BulkMeasures], tz: str | None = None, station_id: str = ""
+) -> pd.DataFrame | None:
     """
     Convert multiple BulkMeasures objects to a single pandas DataFrame.
     :param bulk_measures: list of BulkMeasures objects.
