@@ -7,24 +7,32 @@ import asyncio
 import concurrent.futures
 import pandas as pd
 from tqdm.auto import tqdm
-from pathlib import Path
 from datetime import datetime, timezone, timedelta
+from importlib import resources
 from zoneinfo import ZoneInfo
 from aiolimiter import AsyncLimiter
 
 from wiscopy.schema import (
-       BASE_URL, Station, Field, BulkMeasures,
+    BASE_URL,
+    Station,
+    Field,
+    BulkMeasures,
 )
-from wiscopy.process import (
-    multiple_bulk_measures_to_df
-)
+from wiscopy.process import multiple_bulk_measures_to_df
 
 RATE_LIMIT_CALLS = os.environ.get("WISCONET_RATE_LIMIT_CALLS", 20)
 RATE_LIMIT_PERIOD = os.environ.get("WISCONET_LIMIT_PERIOD", 20.0)
-CACHED_FIELDS_JSON = Path(__file__).parent.parent.parent / "data" / "cached_fields.json"
 
 
 logger = logging.getLogger(__name__)
+
+
+def get_cached_fields() -> list[dict[str, int | str]]:
+    """Load local cached fields JSON as dict"""
+    with (
+        resources.files("wiscopy.static").joinpath("cached_fields.json").open("r") as f
+    ):
+        return json.load(f)
 
 
 class RetryTransport(httpx.BaseTransport):
@@ -40,7 +48,7 @@ class RetryTransport(httpx.BaseTransport):
             if response.status_code != 429 or attempt == self._max_retries:
                 return response
             response.close()
-            retry_after = float(response.headers.get("Retry-After", 2 ** attempt))
+            retry_after = float(response.headers.get("Retry-After", 2**attempt))
             time.sleep(retry_after)
 
     def close(self) -> None:
@@ -67,7 +75,7 @@ class RateLimitedRetryTransport(httpx.AsyncBaseTransport):
             if response.status_code != 429 or attempt == self._max_retries:
                 return response
             await response.aclose()
-            retry_after = float(response.headers.get("Retry-After", 2 ** attempt))
+            retry_after = float(response.headers.get("Retry-After", 2**attempt))
             await asyncio.sleep(retry_after)
 
     async def aclose(self) -> None:
@@ -87,19 +95,21 @@ def all_stations() -> list[Station]:
 
     for station in response.json():
         station_tz = station.pop("station_timezone")
-        earliest_api_date = datetime.strptime(station.pop("earliest_api_date"), "%m/%d/%Y")
+        earliest_api_date = datetime.strptime(
+            station.pop("earliest_api_date"), "%m/%d/%Y"
+        )
         elevation = float(station.pop("elevation"))
         latitude = float(station.pop("latitude"))
         longitude = float(station.pop("longitude"))
         stations.append(
-             Station(
+            Station(
                 station_timezone=station_tz,
                 earliest_api_date=earliest_api_date,
                 elevation=elevation,
                 latitude=latitude,
                 longitude=longitude,
                 **station,
-             )
+            )
         )
     return stations
 
@@ -113,17 +123,20 @@ def station_fields(station_id: str) -> list[Field]:
     route = f"/fields/{station_id}/available_fields"
     with httpx.Client(base_url=BASE_URL, transport=RetryTransport()) as client:
         response = client.get(route)
-    
+
     if response.status_code != 200:
-        logger.warning(f"{BASE_URL}{route} returned HTTP {response.status_code}, defaulting to all fields")
+        logger.warning(
+            f"{BASE_URL}{route} returned HTTP {response.status_code}, defaulting to all fields"
+        )
         route = "https://wisconet.wisc.edu/api/v1/fields/"
         with httpx.Client(base_url=BASE_URL, transport=RetryTransport()) as client:
             response = client.get(route)
-    
+
     if response.status_code != 200:
-        logger.warning(f"{BASE_URL}{route} returned HTTP {response.status_code}, defaulting to all cached fields")
-        with open(CACHED_FIELDS_JSON, 'r') as f:
-            response_json = json.load(f)
+        logger.warning(
+            f"{BASE_URL}{route} returned HTTP {response.status_code}, defaulting to all cached fields"
+        )
+        response_json = get_cached_fields()
         return [Field(**field) for field in response_json]
 
     return [Field(**field) for field in response.json()]
@@ -139,14 +152,18 @@ def datetime_at_station_in_utc(station: Station, dt: datetime | str) -> datetime
     if isinstance(dt, str):
         dt = datetime.fromisoformat(dt)
 
-    return (
-        dt
-        .replace(tzinfo=ZoneInfo(station.station_timezone))
-        .astimezone(timezone.utc)
+    return dt.replace(tzinfo=ZoneInfo(station.station_timezone)).astimezone(
+        timezone.utc
     )
 
 
-def bulk_measures(station_id: str, start_time: datetime, end_time: datetime, fields: list[str] | None = None, timeout: float = 30.0) -> BulkMeasures:
+def bulk_measures(
+    station_id: str,
+    start_time: datetime,
+    end_time: datetime,
+    fields: list[str] | None = None,
+    timeout: float = 30.0,
+) -> BulkMeasures:
     """
     Get measures for a station between two times.
     :param station_id: Station.station_id e.g "ALTN".
@@ -165,14 +182,21 @@ def bulk_measures(station_id: str, start_time: datetime, end_time: datetime, fie
     }
     if fields:
         params["fields"] = ",".join(fields)
-    with httpx.Client(base_url=BASE_URL, timeout=timeout, transport=RetryTransport()) as client:
+    with httpx.Client(
+        base_url=BASE_URL, timeout=timeout, transport=RetryTransport()
+    ) as client:
         response = client.get(route, params=params)
         response.raise_for_status()
     return BulkMeasures(**response.json())
 
 
 async def async_bulk_measures(
-        station_id: str, start_time: datetime, end_time: datetime, client: httpx.AsyncClient, fields: list[str] | None = None) -> BulkMeasures:
+    station_id: str,
+    start_time: datetime,
+    end_time: datetime,
+    client: httpx.AsyncClient,
+    fields: list[str] | None = None,
+) -> BulkMeasures:
     """
     Get measures for a station between two times.
     :param station_id: Station.station_id e.g "ALTN".
@@ -196,7 +220,14 @@ async def async_bulk_measures(
     return BulkMeasures(**response.json())
 
 
-async def gather_async_bulk_measure_data(station_id: str, start_time: datetime, end_time: datetime, chunk_days: int, client: httpx.AsyncClient, fields: list[str] | None = None) -> list[BulkMeasures]:
+async def gather_async_bulk_measure_data(
+    station_id: str,
+    start_time: datetime,
+    end_time: datetime,
+    chunk_days: int,
+    client: httpx.AsyncClient,
+    fields: list[str] | None = None,
+) -> list[BulkMeasures]:
     """
     Async fetch measures for a station between two times by splitting a measures request into chunks, and async fetching all the chunks simultaneously.
     :param station_id: Station.station_id e.g "ALTN"
@@ -209,27 +240,36 @@ async def gather_async_bulk_measure_data(station_id: str, start_time: datetime, 
     total_time_delta = end_time - start_time
     task_start_and_end_dts = [
         (
-            start_time + timedelta(days=i*chunk_days),
-            start_time + timedelta(days=(i+1)*chunk_days) if start_time + timedelta(days=(i+1)*chunk_days) < end_time else end_time
+            start_time + timedelta(days=i * chunk_days),
+            start_time + timedelta(days=(i + 1) * chunk_days)
+            if start_time + timedelta(days=(i + 1) * chunk_days) < end_time
+            else end_time,
         )
         for i in range(0, total_time_delta.days // chunk_days + 1)
-        if start_time + timedelta(days=i*chunk_days) < end_time
+        if start_time + timedelta(days=i * chunk_days) < end_time
     ]
     return await asyncio.gather(
-        *[async_bulk_measures(
+        *[
+            async_bulk_measures(
                 station_id=station_id,
                 start_time=start_time,
                 end_time=end_time,
                 client=client,
                 fields=fields,
             )
-          for start_time, end_time in task_start_and_end_dts]
+            for start_time, end_time in task_start_and_end_dts
+        ]
     )
 
 
 async def _fetch_chunks(
-    station_id: str, start_time_utc: datetime, end_time_utc: datetime,
-    chunk_days: int, fields: list[str] | None, timeout: float, limits: httpx.Limits | None,
+    station_id: str,
+    start_time_utc: datetime,
+    end_time_utc: datetime,
+    chunk_days: int,
+    fields: list[str] | None,
+    timeout: float,
+    limits: httpx.Limits | None,
 ) -> list[BulkMeasures]:
     transport = RateLimitedRetryTransport(limits=limits)
     client = httpx.AsyncClient(base_url=BASE_URL, timeout=timeout, transport=transport)
@@ -243,7 +283,15 @@ async def _fetch_chunks(
     )
 
 
-def bulk_fetch(station: Station, start_time: datetime, end_time: datetime, fields: list[str] | None = None, duration_days=30, timeout=60.0, limits: httpx.Limits | None = None) -> pd.DataFrame | None:
+def bulk_fetch(
+    station: Station,
+    start_time: datetime,
+    end_time: datetime,
+    fields: list[str] | None = None,
+    duration_days=30,
+    timeout=60.0,
+    limits: httpx.Limits | None = None,
+) -> pd.DataFrame | None:
     """
     Get data for a Station, uses async requests to fetch data in chunks, use this to fetch large amounts of data.
     :param station: Station object.
@@ -262,7 +310,15 @@ def bulk_fetch(station: Station, start_time: datetime, end_time: datetime, field
         loop = asyncio.new_event_loop()
         try:
             return loop.run_until_complete(
-                _fetch_chunks(station.station_id, start_time_utc, end_time_utc, duration_days, fields, timeout, limits)
+                _fetch_chunks(
+                    station.station_id,
+                    start_time_utc,
+                    end_time_utc,
+                    duration_days,
+                    fields,
+                    timeout,
+                    limits,
+                )
             )
         finally:
             loop.close()
@@ -275,12 +331,28 @@ def bulk_fetch(station: Station, start_time: datetime, end_time: datetime, field
             bulk_measures_list = pool.submit(_run).result()
     except RuntimeError:
         bulk_measures_list = asyncio.run(
-            _fetch_chunks(station.station_id, start_time_utc, end_time_utc, duration_days, fields, timeout, limits)
+            _fetch_chunks(
+                station.station_id,
+                start_time_utc,
+                end_time_utc,
+                duration_days,
+                fields,
+                timeout,
+                limits,
+            )
         )
-    return multiple_bulk_measures_to_df(bulk_measures_list, tz=station.station_timezone, station_id=station.station_id)
+    return multiple_bulk_measures_to_df(
+        bulk_measures_list, tz=station.station_timezone, station_id=station.station_id
+    )
 
 
-def all_data_for_station(s: Station, fields: list[str] | None = None, duration_days=30, timeout=60.0, limits: httpx.Limits | None = None) -> pd.DataFrame | None:
+def all_data_for_station(
+    s: Station,
+    fields: list[str] | None = None,
+    duration_days=30,
+    timeout=60.0,
+    limits: httpx.Limits | None = None,
+) -> pd.DataFrame | None:
     """
     Get all available data for a Station.
     :param s: Station object.
@@ -289,8 +361,8 @@ def all_data_for_station(s: Station, fields: list[str] | None = None, duration_d
     :param limits: optional httpx.Limits object; defaults to 5 max_keepalive_connections and 5 max_connections.
     :return: DataFrame or None.
     """
-    start_time=datetime_at_station_in_utc(station=s, dt=s.earliest_api_date)
-    end_time=datetime_at_station_in_utc(station=s, dt=datetime.now())
+    start_time = datetime_at_station_in_utc(station=s, dt=s.earliest_api_date)
+    end_time = datetime_at_station_in_utc(station=s, dt=datetime.now())
     return bulk_fetch(
         station=s,
         start_time=start_time,
@@ -298,7 +370,7 @@ def all_data_for_station(s: Station, fields: list[str] | None = None, duration_d
         fields=fields,
         duration_days=duration_days,
         timeout=timeout,
-        limits=limits
+        limits=limits,
     )
 
 
@@ -309,7 +381,7 @@ def fetch_data_multiple_stations(
     fields: list[str],
     limits: httpx.Limits | None = None,
     duration_days: int = 30,
-    timeout: float = 60.0, 
+    timeout: float = 60.0,
 ) -> pd.DataFrame:
     """
     Get data from multiple stations.

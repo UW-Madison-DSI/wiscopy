@@ -107,6 +107,6 @@ class CollectionTimeByField(BaseModel):
 
 
 class CollectionTimes(BaseModel):
-     byField: CollectionTimeByField
-     earliest_collection_time: int
-     latest_collection_time: int
+    byField: CollectionTimeByField
+    earliest_collection_time: int
+    latest_collection_time: int

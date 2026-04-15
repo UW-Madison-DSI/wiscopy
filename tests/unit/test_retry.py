@@ -36,13 +36,16 @@ def make_transport(cls, inner_mock, **kwargs):
 
 # --- RateLimitedRetryTransport (async) ---
 
+
 @pytest.mark.asyncio
 async def test_async_transport_retries_on_429_respects_retry_after():
     inner = MagicMock()
-    inner.handle_async_request = AsyncMock(side_effect=[
-        mock_response(429, {"Retry-After": "0"}),
-        mock_response(200),
-    ])
+    inner.handle_async_request = AsyncMock(
+        side_effect=[
+            mock_response(429, {"Retry-After": "0"}),
+            mock_response(200),
+        ]
+    )
     transport = make_transport(RateLimitedRetryTransport, inner)
     request = httpx.Request("GET", "https://example.com/")
 
@@ -58,10 +61,12 @@ async def test_async_transport_retries_on_429_respects_retry_after():
 async def test_async_transport_retry_uses_exponential_backoff():
     """Without Retry-After, backoff is 2**attempt (1 on first retry)."""
     inner = MagicMock()
-    inner.handle_async_request = AsyncMock(side_effect=[
-        mock_response(429),  # no Retry-After
-        mock_response(200),
-    ])
+    inner.handle_async_request = AsyncMock(
+        side_effect=[
+            mock_response(429),  # no Retry-After
+            mock_response(200),
+        ]
+    )
     transport = make_transport(RateLimitedRetryTransport, inner)
     request = httpx.Request("GET", "https://example.com/")
 
@@ -116,6 +121,7 @@ async def test_async_transport_non_429_returned_immediately():
 
 
 # --- RetryTransport (sync) ---
+
 
 def test_sync_transport_retries_on_429_respects_retry_after():
     inner = MagicMock()
@@ -174,6 +180,7 @@ def test_sync_transport_non_429_returned_immediately():
 
 # --- Rate limiting enforcement ---
 
+
 @pytest.mark.asyncio
 async def test_rate_limiter_enforces_max_calls_per_period():
     """No more than max_calls requests should execute within any period-second window."""
@@ -185,9 +192,11 @@ async def test_rate_limiter_enforces_max_calls_per_period():
     timestamps: list[float] = []
 
     inner = MagicMock()
+
     async def record_and_respond(request):
         timestamps.append(loop.time())
         return mock_response(200)
+
     inner.handle_async_request = record_and_respond
 
     transport = RateLimitedRetryTransport.__new__(RateLimitedRetryTransport)
@@ -196,7 +205,9 @@ async def test_rate_limiter_enforces_max_calls_per_period():
     transport._limiter = AsyncLimiter(max_calls, period)
 
     request = httpx.Request("GET", "https://example.com/")
-    await asyncio.gather(*[transport.handle_async_request(request) for _ in range(n_requests)])
+    await asyncio.gather(
+        *[transport.handle_async_request(request) for _ in range(n_requests)]
+    )
 
     assert len(timestamps) == n_requests
     # AsyncLimiter (leaky bucket) allows an initial burst of max_calls requests before
@@ -222,9 +233,11 @@ async def test_rate_limiter_delays_requests_over_limit():
     timestamps: list[float] = []
 
     inner = MagicMock()
+
     async def record_and_respond(request):
         timestamps.append(loop.time())
         return mock_response(200)
+
     inner.handle_async_request = record_and_respond
 
     transport = RateLimitedRetryTransport.__new__(RateLimitedRetryTransport)
@@ -234,7 +247,9 @@ async def test_rate_limiter_delays_requests_over_limit():
 
     request = httpx.Request("GET", "https://example.com/")
     t0 = loop.time()
-    await asyncio.gather(*[transport.handle_async_request(request) for _ in range(n_requests)])
+    await asyncio.gather(
+        *[transport.handle_async_request(request) for _ in range(n_requests)]
+    )
     elapsed = loop.time() - t0
 
     # AsyncLimiter (leaky bucket) fires the first max_calls requests as a burst, then
@@ -244,4 +259,49 @@ async def test_rate_limiter_delays_requests_over_limit():
     assert elapsed >= token_interval * 0.9, (
         f"Expected at least {token_interval:.2f}s elapsed for {n_requests} requests "
         f"at {max_calls}/{period}s limit, got {elapsed:.3f}s"
+    )
+
+
+@pytest.mark.asyncio
+async def test_env_vars_configure_rate_limit(monkeypatch):
+    """RATE_LIMIT_CALLS/PERIOD module constants (sourced from env vars) are picked up
+    by RateLimitedRetryTransport.__init__ and the new rate is actually enforced."""
+    # --- Assemble ---
+    import wiscopy.data as data_module
+
+    new_calls = 2
+    new_period = 0.4
+    monkeypatch.setattr(data_module, "RATE_LIMIT_CALLS", new_calls)
+    monkeypatch.setattr(data_module, "RATE_LIMIT_PERIOD", new_period)
+
+    loop = asyncio.get_running_loop()
+
+    inner = MagicMock()
+
+    async def record_and_respond(_request):
+        return mock_response(200)
+
+    inner.handle_async_request = record_and_respond
+
+    transport = RateLimitedRetryTransport()
+    transport._transport = inner
+    transport._max_retries = 0
+
+    request = httpx.Request("GET", "https://example.com/")
+    n_requests = new_calls + 1  # one beyond the burst limit
+
+    # --- Act ---
+    t0 = loop.time()
+    await asyncio.gather(
+        *[transport.handle_async_request(request) for _ in range(n_requests)]
+    )
+    elapsed = loop.time() - t0
+
+    # --- Assert ---
+    assert transport._limiter.max_rate == new_calls
+    assert transport._limiter.time_period == new_period
+    token_interval = new_period / new_calls
+    assert elapsed >= token_interval * 0.9, (
+        f"Expected >= {token_interval:.3f}s for {n_requests} requests at "
+        f"{new_calls}/{new_period}s; got {elapsed:.3f}s"
     )

@@ -46,7 +46,6 @@ targets.sdist.include = [
     "pyproject.toml",
     "pixi.lock",
     "/src",
-    "/data"
 ]
 targets.sdist.exclude = [
     "/tests",
@@ -76,6 +75,11 @@ tqdm = ">=4.0"
 [tool.pixi.feature.dev.tasks]
 test = "pytest tests/unit/"
 test-integration = "pytest tests/integration/"
+format = "ruff format ."
+format-check = "ruff format --check ."
+lint = "ruff check ."
+pre-push = { depends-on = ["format", "lint", "test"], description = "Format, lint, and run unit tests before pushing" }
+ci = { depends-on = ["format-check", "lint", "test"], description = "CI: verify formatting, lint, and run unit tests" }
 
 [tool.pixi.feature.dev.dependencies]
 pytest = "*"
@@ -110,8 +114,17 @@ uvx --from build pyproject-build && \
 uvx twine check --strict dist/*
 """
 
+[tool.pixi.feature.ci-test.dependencies]
+pytest = "*"
+python = "*"
+pytest-asyncio = ">=1.3.0,<2"
+
+[tool.pixi.feature.ci-test.tasks]
+test-wheel = { cmd = "uv pip install dist/*.whl && pytest tests/unit", depends-on = ["build"] }
+
 
 [tool.pixi.environments]
 dev = ["plot", "dev"]
 notebook = ["plot", "notebook"]
 build = { features = ["build"], no-default-feature = true }
+clean-room = { features = ["ci-test", "build"], no-default-feature = true }
