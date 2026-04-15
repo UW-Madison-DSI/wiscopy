@@ -126,7 +126,8 @@ pixi run test
 pixi run -e dev ruff check --fix .  
 ```
 
-### 6. run all pre-push checks (format, lint, tests)
+### 6. run all pre-push checks 
+Confirm github workflows will pass before pushing: pixi lock file sync, format, lint, tests
 ```bash
 pixi run pre-push  
 ```
